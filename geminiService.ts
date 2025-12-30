@@ -23,22 +23,24 @@ export const getNextScenario = async (
     - MARITAL STATUS: ${stats.maritalStatus}
     - CHILDREN: ${stats.numberOfKids}
     - LIQUID BALANCE: ₦${stats.balance.toLocaleString()}
-    - MONTHLY EARNINGS: ₦${stats.salary.toLocaleString()}
-    - CURRENT TIMELINE: Week ${stats.currentWeek} (${phase})
-    - ACTIVE CHALLENGE: ${stats.challenge}
+    - MONTHLY SALARY: ₦${stats.salary.toLocaleString()}
+    - TIMELINE: Week ${stats.currentWeek} (Phase: ${phase})
+    - CHALLENGE: ${stats.challenge}
+
+    CRITICAL GAME MECHANICS:
+    1. SALARY CYCLE: The player gets their ₦${stats.salary.toLocaleString()} salary every 4 weeks with a 1-week delay (Weeks 5, 9, 13...). 
+       Current week is ${stats.currentWeek}.
+    2. THE ZERO RULE: If the player's balance hits ₦0, they lose instantly. Scenarios should tempt them to spend or force them to choose between essentials and survival.
+    3. GIVING: Every time money comes in (including this scenario's inflow or salary), they are asked to Tithe or Give.
 
     STRICT GUIDELINES:
-    1. PROVIDE EXACTLY 4 CHOICES (Each representing a different path).
-    2. THE SCENARIO MUST BE PERSONALIZED:
-       - If ${stats.maritalStatus === 'married' ? 'married' : 'single'}, the scenario should involve ${stats.maritalStatus === 'married' ? `their spouse or ${stats.numberOfKids} children` : 'their personal life or extended family'}.
-       - If ${stats.gender === 'male' ? 'a man' : 'a woman'}, use appropriate cultural references (e.g., 'Oga', 'Madam', 'Chairman').
-       - Mention their job (${stats.job}) context.
-    3. Choice 1: Survival/Prudent - A localized Nigerian way to save or earn extra.
-    4. Choice 2: Social/Responsibility - High personalization: Black tax, family emergency, or social pressure (Owambe/Clubbing).
-    5. Choice 3: Individual Stock - Use one of these IDs: "lagos-gas", "nairatech", "obudu-agri".
-    6. Choice 4: Mutual Fund - Use one of these IDs: "naija-balanced", "arm-growth", "fgn-bond-fund".
-    7. Use authentic Nigerian Pidgin and cultural slang naturally.
-    8. Financial impacts must be relative to their ₦${stats.salary.toLocaleString()} income.
+    1. PROVIDE EXACTLY 4 CHOICES.
+    2. Choice 1: Survival/Prudent - A localized Nigerian way to save or earn extra.
+    3. Choice 2: Personal/Social - A high-pressure Nigerian situation (Black Tax, wedding, car trouble, medical, etc).
+    4. Choice 3: Individual Stock - Use one: "lagos-gas", "nairatech", "obudu-agri".
+    5. Choice 4: Mutual Fund - Use one: "naija-balanced", "arm-growth", "fgn-bond-fund".
+    6. Use authentic Nigerian Pidgin and cultural context naturally.
+    7. Impacts must be proportional to their income.
 
     RESPONSE FORMAT: JSON only.
   `;
@@ -53,7 +55,7 @@ export const getNextScenario = async (
         properties: {
           title: { type: Type.STRING },
           description: { type: Type.STRING },
-          imageTheme: { type: Type.STRING, description: "Theme for a cover image, e.g. 'nigerian market', 'office', 'wedding'" },
+          imageTheme: { type: Type.STRING, description: "Theme for image generation" },
           choices: {
             type: Type.ARRAY,
             minItems: 4,
@@ -63,7 +65,7 @@ export const getNextScenario = async (
               properties: {
                 text: { type: Type.STRING },
                 consequence: { type: Type.STRING },
-                investmentId: { type: Type.STRING },
+                investmentId: { type: Type.STRING, description: "Only for stocks/funds" },
                 impact: {
                   type: Type.OBJECT,
                   properties: {
@@ -81,7 +83,7 @@ export const getNextScenario = async (
         },
         required: ["title", "description", "choices", "imageTheme"]
       },
-      systemInstruction: "You are NairaWise, a financial role-play engine for Nigerians. You provide exactly 4 choices. Your tone is witty, culturally grounded, and wise."
+      systemInstruction: "You are NairaWise, the ultimate Nigerian financial coach. You speak in Pidgin mixed with English. You are witty, slightly sarcastic but deeply helpful."
     }
   });
 
@@ -90,11 +92,11 @@ export const getNextScenario = async (
 
 export const getEndGameAnalysis = async (stats: PlayerStats, history: GameLog[]) => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const prompt = `Analyze how ${stats.name} (a ${stats.job}) went broke after ${stats.currentWeek} weeks. Final Balance: ₦${stats.balance}. Debt: ₦${stats.debt}. Family size: ${stats.numberOfKids}. Give a funny, biting, but educational lecture in Pidgin about what went wrong.`;
+  const prompt = `Explain why ${stats.name} (a ${stats.job}) is now broke (₦0 balance) at Week ${stats.currentWeek}. Use history if provided. Mention the debt of ₦${stats.debt}. Give a final humorous lecture in Pidgin.`;
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
     contents: prompt,
-    config: { systemInstruction: "You are a wise but slightly mean Nigerian financial mentor." }
+    config: { systemInstruction: "You are a wise but biting Nigerian financial mentor." }
   });
-  return response.text || "Sapa catch you, my pikin! Your village people don win.";
+  return response.text || "Sapa catch you, my pikin! Your balance is zero. Your village people don win finally.";
 };
