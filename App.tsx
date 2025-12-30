@@ -10,9 +10,9 @@ import {
   PortfolioItem,
   Goal
 } from './types';
-import { getNextScenario, getEndGameAnalysis } from './services/geminiService';
-import Dashboard from './components/Dashboard';
-import StockMarket from './components/StockMarket';
+import { getNextScenario, getEndGameAnalysis } from './geminiService';
+import Dashboard from './Dashboard';
+import StockMarket from './StockMarket';
 import { 
   Loader2, 
   Banknote, 
@@ -22,14 +22,21 @@ import {
   Crown, 
   AlertCircle, 
   ArrowRight,
-  TrendingUp,
-  Church,
-  Mosque,
-  Coins,
-  ShieldAlert,
+  CircleDollarSign,
   CheckCircle2,
-  Zap
+  Zap,
+  Users,
+  MapPin,
+  Briefcase
 } from 'lucide-react';
+
+const NIGERIAN_STATES = [
+  "Abia", "Adamawa", "Akwa Ibom", "Anambra", "Bauchi", "Bayelsa", "Benue", "Borno", 
+  "Cross River", "Delta", "Ebonyi", "Edo", "Ekiti", "Enugu", "FCT - Abuja", "Gombe", 
+  "Imo", "Jigawa", "Kaduna", "Kano", "Katsina", "Kebbi", "Kogi", "Kwara", "Lagos", 
+  "Nasarawa", "Niger", "Ogun", "Ondo", "Osun", "Oyo", "Plateau", "Rivers", 
+  "Sokoto", "Taraba", "Yobe", "Zamfara"
+];
 
 const INITIAL_ASSETS: Stock[] = [
   { id: 'lagos-gas', name: 'Lagos Gas Ltd.', price: 12500, history: [12000, 12500], sector: 'Energy', assetType: 'stock' },
@@ -41,10 +48,10 @@ const INITIAL_ASSETS: Stock[] = [
 ];
 
 const CHALLENGES = [
-  { id: 'black-tax', name: 'Black Tax Heavy', icon: Heart, color: 'text-rose-500', description: 'Family needs a cut of every profit. Responsibility is heavy.' },
-  { id: 'sapa-max', name: 'Sapa Level Max', icon: Flame, color: 'text-orange-500', description: 'Start with ₦0. Only your grit can save you.' },
-  { id: 'inflation', name: 'Inflation Fighter', icon: AlertCircle, color: 'text-amber-500', description: 'Start with ₦500k student debt. Tick-tock.' },
-  { id: 'silver-spoon', name: 'Silver Spoon', icon: Crown, color: 'text-indigo-500', description: '₦1M headstart, but boredom kills happiness fast.' }
+  { id: 'black-tax', name: 'Black Tax Heavy', icon: Heart, color: 'text-rose-500', description: 'Family needs a cut of every profit.' },
+  { id: 'sapa-max', name: 'Sapa Level Max', icon: Flame, color: 'text-orange-500', description: 'Start with ₦10k + salary. Survival is key.' },
+  { id: 'inflation', name: 'Inflation Fighter', icon: AlertCircle, color: 'text-amber-500', description: 'Start with ₦500k student debt.' },
+  { id: 'silver-spoon', name: 'Silver Spoon', icon: Crown, color: 'text-indigo-500', description: '₦1M headstart, high expectations.' }
 ];
 
 const JOBS = [
@@ -56,14 +63,6 @@ const PRESET_GOALS: Goal[] = [
   { id: 'survive', title: 'Financial Peace', target: 2000000, category: 'savings', completed: false },
   { id: 'lekki', title: 'Lekki Landlord', target: 15000000, category: 'investment', completed: false },
   { id: 'japa', title: 'The Great Japa', target: 40000000, category: 'lifestyle', completed: false },
-];
-
-const ALL_NIGERIAN_STATES = [
-  "Abia", "Adamawa", "Akwa Ibom", "Anambra", "Bauchi", "Bayelsa", "Benue", "Borno", 
-  "Cross River", "Delta", "Ebonyi", "Edo", "Ekiti", "Enugu", "FCT Abuja", "Gombe", 
-  "Imo", "Jigawa", "Kaduna", "Kano", "Katsina", "Kebbi", "Kogi", "Kwara", "Lagos", 
-  "Nasarawa", "Niger", "Ogun", "Ondo", "Osun", "Oyo", "Plateau", "Rivers", 
-  "Sokoto", "Taraba", "Yobe", "Zamfara"
 ];
 
 const App: React.FC = () => {
@@ -79,8 +78,6 @@ const App: React.FC = () => {
   const [portfolio, setPortfolio] = useState<PortfolioItem[]>([]);
   const [gameOverReport, setGameOverReport] = useState<string>('');
   const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
-  const [showGivingOptions, setShowGivingOptions] = useState<boolean>(false);
-  const [pendingInflow, setPendingInflow] = useState<number>(0);
   const isPrefetching = useRef(false);
 
   const [setupData, setSetupData] = useState({
@@ -102,16 +99,22 @@ const App: React.FC = () => {
 
   const handleFinishSetup = async () => {
     if (!setupData.name) return alert("Enter your name!");
+    
+    // WEEK 1: START WITH SALARY PAID
+    const baseline = setupData.challengeId === 'sapa-max' ? 10000 : setupData.challengeId === 'silver-spoon' ? 1000000 : 50000;
+    const startBalance = baseline + setupData.salary;
+
     const initial: PlayerStats = {
       ...setupData, 
       age: 22, 
-      balance: setupData.challengeId === 'sapa-max' ? 0 : setupData.challengeId === 'silver-spoon' ? 1000000 : setupData.salary,
+      balance: startBalance,
       savings: 0, 
       debt: setupData.challengeId === 'inflation' ? 500000 : 0, 
       happiness: 80, 
       currentWeek: 1, 
       challenge: CHALLENGES.find(c => c.id === setupData.challengeId)?.name || "The Hustle"
     };
+    
     setStatus(GameStatus.LOADING);
     setStats(initial);
     setGoals([{ ...PRESET_GOALS.find(g => g.id === setupData.selectedGoalId)! }]);
@@ -144,7 +147,6 @@ const App: React.FC = () => {
     let totalDebtImpact = 0;
     let totalHappinessImpact = 0;
     let consequences: {text: string, decision: string}[] = [];
-    let inflowThisTurn = 0;
 
     selectedIndices.forEach(idx => {
       const choice = currentScenario.choices[idx];
@@ -153,9 +155,7 @@ const App: React.FC = () => {
       totalDebtImpact += choice.impact.debt;
       totalHappinessImpact += choice.impact.happiness;
       consequences.push({ text: choice.consequence, decision: choice.text });
-      if (choice.impact.balance > 0) inflowThisTurn += choice.impact.balance;
 
-      // Handle investment logic
       if (choice.investmentId) {
         const stock = stocks.find(s => s.id === choice.investmentId);
         if (stock) {
@@ -168,12 +168,11 @@ const App: React.FC = () => {
       }
     });
 
-    // Salary Logic: Hits every 4 weeks with a 1-week delay (Weeks 5, 9, 13...)
+    // SALARY CYCLE: Work 4 weeks, get paid Week 5, 9, 13...
     const isSalaryWeek = stats.currentWeek > 1 && (stats.currentWeek - 1) % 4 === 0;
     if (isSalaryWeek) {
       totalBalanceImpact += stats.salary;
-      inflowThisTurn += stats.salary;
-      consequences.push({ text: "Alert! Your monthly salary just hit. Use it wisely!", decision: "SALARY PAYMENT" });
+      consequences.push({ text: `Salary Alert! ₦${stats.salary.toLocaleString()} don enter. Manage am well!`, decision: "SALARY PAYMENT" });
     }
 
     const newStats = {
@@ -192,62 +191,15 @@ const App: React.FC = () => {
       consequence: consequences.map(c => c.text).join(" ") 
     }];
 
-    // Immediate GameOver check
     if (newStats.balance <= 0) {
       return triggerGameOver(newStats, newHistory);
     }
 
-    // Giving Modal Trigger
-    if (inflowThisTurn > 0) {
-      setPendingInflow(inflowThisTurn);
-      setStats(newStats);
-      setHistory(newHistory);
-      setLastConsequences({ title: currentScenario.title, items: consequences });
-      setShowGivingOptions(true);
-      return;
-    }
-
-    finalizeStep(newStats, newHistory, consequences);
-  };
-
-  const finalizeStep = (s: PlayerStats, h: GameLog[], cons: {text: string, decision: string}[]) => {
-    setStats(s);
-    setHistory(h);
-    setLastConsequences({ title: currentScenario?.title || "Update", items: cons });
+    setStats(newStats);
+    setHistory(newHistory);
+    setLastConsequences({ title: currentScenario.title, items: consequences });
     setSelectedIndices([]);
-    if (!nextScenario) prefetchNext(s, h);
-  };
-
-  const handleGiving = async (type: 'tithe' | 'offering' | 'both' | 'none') => {
-    if (!stats) return;
-    let cost = 0;
-    let happinessGain = 0;
-    
-    if (type === 'tithe' || type === 'both') {
-      cost += pendingInflow * 0.1;
-      happinessGain += 5;
-    }
-    if (type === 'offering' || type === 'both') {
-      cost += pendingInflow * 0.05;
-      happinessGain += 3;
-    }
-
-    const updatedStats = {
-      ...stats,
-      balance: stats.balance - cost,
-      happiness: Math.min(100, stats.happiness + happinessGain)
-    };
-
-    setShowGivingOptions(false);
-    setPendingInflow(0);
-
-    if (updatedStats.balance <= 0) {
-      return triggerGameOver(updatedStats, history);
-    }
-
-    setStats(updatedStats);
-    setSelectedIndices([]);
-    if (!nextScenario) prefetchNext(updatedStats, history);
+    if (!nextScenario) prefetchNext(newStats, newHistory);
   };
 
   const proceed = () => {
@@ -269,45 +221,43 @@ const App: React.FC = () => {
       {status === GameStatus.START && (
         <div className="flex flex-col items-center justify-center min-h-[80vh] text-center space-y-10 animate-in fade-in zoom-in duration-700">
            <h1 className="text-8xl font-black text-slate-900 logo-font tracking-tighter"><span className="text-gradient">NairaWise</span></h1>
-           <p className="text-xl text-slate-500 font-bold max-w-md">The Nigerian Financial Survival Sim. Salary hits every 4 weeks with a 1-week delay. Liquid cash hits zero? Game over!</p>
-           <button onClick={() => setStatus(GameStatus.SETUP)} className="px-14 py-7 bg-slate-900 text-white rounded-[2.5rem] font-black text-2xl flex items-center gap-4 transition-all hover:scale-105 active:scale-95 shadow-xl">Start My Career <ArrowRight /></button>
+           <p className="text-xl text-slate-500 font-bold max-w-md leading-relaxed">Secular Financial Sim. Salary starts Week 1. Survive the 4-week cycles. Zero balance = Game Over!</p>
+           <button onClick={() => setStatus(GameStatus.SETUP)} className="px-14 py-7 bg-slate-900 text-white rounded-[2.5rem] font-black text-2xl flex items-center gap-4 transition-all hover:scale-105 active:scale-95 shadow-xl">Start My Journey <ArrowRight /></button>
         </div>
       )}
 
       {status === GameStatus.SETUP && (
         <div className="max-w-4xl mx-auto bg-white p-8 md:p-12 rounded-[3.5rem] shadow-2xl border border-slate-100 animate-in slide-in-from-bottom-8 duration-500">
-          <h2 className="text-4xl font-black mb-10 logo-font text-center">Your Identity</h2>
+          <h2 className="text-4xl font-black mb-10 logo-font text-center">Setup Your Life</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
             <div className="space-y-6">
               <div>
-                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-4 mb-2 block">Full Name</label>
-                <input placeholder="e.g. Ebuka" className="w-full bg-slate-50 p-5 rounded-2xl font-bold border-2 border-transparent focus:border-indigo-500 outline-none transition-all" value={setupData.name} onChange={e => setSetupData({...setupData, name: e.target.value})} />
+                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-4 mb-2 block">Name</label>
+                <input placeholder="e.g. Chinedu" className="w-full bg-slate-50 p-5 rounded-2xl font-bold border-2 border-transparent focus:border-indigo-500 outline-none" value={setupData.name} onChange={e => setSetupData({...setupData, name: e.target.value})} />
               </div>
               <div>
-                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-4 mb-2 block">Gender</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {(['male', 'female', 'other'] as const).map(g => (
-                    <button key={g} onClick={() => setSetupData({...setupData, gender: g})} className={`py-4 rounded-2xl font-black text-xs uppercase border-2 transition-all ${setupData.gender === g ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-slate-50 border-transparent text-slate-500'}`}>{g}</button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-4 mb-2 block">Career / Job</label>
+                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-4 mb-2 block">Career</label>
                 <select className="w-full bg-slate-50 p-5 rounded-2xl font-bold border-2 border-transparent outline-none focus:border-indigo-500" value={setupData.job} onChange={e => setSetupData({...setupData, job: e.target.value})}>
                   {JOBS.map(j => <option key={j} value={j}>{j}</option>)}
                 </select>
               </div>
-            </div>
-            <div className="space-y-6">
+              <div>
+                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-4 mb-2 block">State of Residence</label>
+                <select className="w-full bg-slate-50 p-5 rounded-2xl font-bold border-2 border-transparent outline-none focus:border-indigo-500" value={setupData.city} onChange={e => setSetupData({...setupData, city: e.target.value})}>
+                  {NIGERIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
               <div>
                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-4 mb-2 block">Monthly Income (₦)</label>
                 <input type="number" className="w-full bg-slate-50 p-5 rounded-2xl font-bold border-2 border-transparent focus:border-indigo-500 outline-none" value={setupData.salary} onChange={e => setSetupData({...setupData, salary: Number(e.target.value)})} />
               </div>
+            </div>
+            <div className="space-y-6">
               <div>
                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-4 mb-2 block">Marital Status</label>
                 <div className="grid grid-cols-2 gap-2">
                   {(['single', 'married'] as const).map(m => (
-                    <button key={m} onClick={() => setSetupData({...setupData, maritalStatus: m})} className={`py-4 rounded-2xl font-black text-xs uppercase border-2 transition-all ${setupData.maritalStatus === m ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-slate-50 border-transparent text-slate-500'}`}>{m}</button>
+                    <button key={m} onClick={() => setSetupData({...setupData, maritalStatus: m})} className={`py-4 rounded-2xl font-black text-xs uppercase border-2 transition-all ${setupData.maritalStatus === m ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-slate-50 border-transparent text-slate-500'}`}>{m}</button>
                   ))}
                 </div>
               </div>
@@ -317,16 +267,22 @@ const App: React.FC = () => {
                   <input type="number" min="0" className="w-full bg-slate-50 p-5 rounded-2xl font-bold border-2 border-transparent focus:border-indigo-500 outline-none" value={setupData.numberOfKids} onChange={e => setSetupData({...setupData, numberOfKids: Number(e.target.value)})} />
                 </div>
               )}
+              <div>
+                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-4 mb-2 block">Starting Challenge</label>
+                <select className="w-full bg-slate-50 p-5 rounded-2xl font-bold border-2 border-transparent outline-none focus:border-indigo-500" value={setupData.challengeId} onChange={e => setSetupData({...setupData, challengeId: e.target.value})}>
+                  {CHALLENGES.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
             </div>
           </div>
-          <button onClick={handleFinishSetup} className="w-full py-8 bg-slate-900 text-white rounded-[2.5rem] font-black text-2xl shadow-xl hover:scale-[1.02] active:scale-95 transition-all">Start Career</button>
+          <button onClick={handleFinishSetup} className="w-full py-8 bg-slate-900 text-white rounded-[2.5rem] font-black text-2xl shadow-xl hover:scale-[1.02] active:scale-95 transition-all">Start My Hustle</button>
         </div>
       )}
 
       {status === GameStatus.LOADING && (
         <div className="flex flex-col items-center justify-center min-h-[60vh]">
           <Loader2 className="w-24 h-24 text-emerald-600 animate-spin" />
-          <p className="mt-8 font-black text-xl text-slate-700">Checking your account balance with the Central Bank...</p>
+          <p className="mt-8 font-black text-xl text-slate-700 uppercase tracking-widest">Checking Account Balance...</p>
         </div>
       )}
 
@@ -341,42 +297,39 @@ const App: React.FC = () => {
              </nav>
           </header>
 
-          {showGivingOptions ? (
-            <div className="bg-white p-12 rounded-[4.5rem] shadow-2xl text-center border-4 border-emerald-500 animate-in zoom-in duration-300">
-              <Coins className="w-20 h-20 text-emerald-500 mx-auto mb-6" />
-              <h3 className="text-4xl font-black mb-4 logo-font">Cash Inflow: ₦{pendingInflow.toLocaleString()}</h3>
-              <p className="text-slate-500 text-xl mb-12">"Give and it shall be given unto you." Fulfil your spiritual obligations?</p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 max-w-2xl mx-auto">
-                <button onClick={() => handleGiving('tithe')} className="p-8 bg-indigo-50 border-2 border-indigo-200 rounded-[2.5rem] hover:bg-indigo-100">
-                  <Church className="mx-auto mb-2 text-indigo-600" />
-                  <p className="font-black">10% Tithe (₦{(pendingInflow*0.1).toLocaleString()})</p>
-                </button>
-                <button onClick={() => handleGiving('offering')} className="p-8 bg-emerald-50 border-2 border-emerald-200 rounded-[2.5rem] hover:bg-emerald-100">
-                  <Mosque className="mx-auto mb-2 text-emerald-600" />
-                  <p className="font-black">5% Offering (₦{(pendingInflow*0.05).toLocaleString()})</p>
-                </button>
-                <button onClick={() => handleGiving('both')} className="md:col-span-2 p-8 bg-slate-900 text-white rounded-[2.5rem]">
-                  Give Both (15%)
-                </button>
-                <button onClick={() => handleGiving('none')} className="md:col-span-2 py-4 text-slate-400 font-bold hover:text-rose-500">
-                  Skip (I'll give later)
-                </button>
-              </div>
-            </div>
-          ) : activeTab === 'invest' ? (
-            <StockMarket stocks={stocks} portfolio={portfolio} news={[]} onBuy={s => {}} onSell={s => {}} balance={stats.balance} onSetTrigger={() => {}} />
+          {activeTab === 'invest' ? (
+            <StockMarket stocks={stocks} portfolio={portfolio} news={[]} onBuy={(id) => {
+              const stock = stocks.find(s => s.id === id);
+              if (stock && stats.balance >= stock.price) {
+                const newStats = { ...stats, balance: stats.balance - stock.price };
+                setStats(newStats);
+                setPortfolio(prev => {
+                  const existing = prev.find(p => p.stockId === id);
+                  if (existing) return prev.map(p => p.stockId === id ? { ...p, shares: p.shares + 1 } : p);
+                  return [...prev, { stockId: id, shares: 1, averagePrice: stock.price }];
+                });
+              }
+            }} onSell={(id) => {
+              const stock = stocks.find(s => s.id === id);
+              const holding = portfolio.find(p => p.stockId === id);
+              if (stock && holding && holding.shares > 0) {
+                const newStats = { ...stats, balance: stats.balance + stock.price };
+                setStats(newStats);
+                setPortfolio(prev => prev.map(p => p.stockId === id ? { ...p, shares: p.shares - 1 } : p));
+              }
+            }} balance={stats.balance} onSetTrigger={() => {}} />
           ) : lastConsequences ? (
              <div className="bg-white p-12 rounded-[4.5rem] shadow-2xl text-center animate-in zoom-in duration-300">
                <h3 className="text-5xl font-black mb-12 logo-font">Week Review</h3>
                <div className="space-y-6 mb-16">
                  {lastConsequences.items.map((it, i) => (
-                   <div key={i} className="p-10 bg-slate-50 rounded-[3rem] text-left">
-                     <p className="text-xs font-black text-emerald-600 uppercase mb-2">{it.decision}</p>
-                     <p className="text-2xl text-slate-700 font-medium italic">"{it.text}"</p>
+                   <div key={i} className="p-10 bg-slate-50 rounded-[3rem] text-left border border-slate-100">
+                     <p className="text-[10px] font-black text-emerald-600 uppercase mb-2 tracking-widest">{it.decision}</p>
+                     <p className="text-2xl text-slate-700 font-medium italic leading-relaxed">"{it.text}"</p>
                    </div>
                  ))}
                </div>
-               <button onClick={proceed} className="px-20 py-8 bg-slate-900 text-white rounded-[2.5rem] font-black text-2xl shadow-2xl active:scale-95 transition-all">Proceed to Week {stats.currentWeek}</button>
+               <button onClick={proceed} className="px-20 py-8 bg-slate-900 text-white rounded-[2.5rem] font-black text-2xl shadow-2xl active:scale-95 transition-all">Next Turn</button>
              </div>
           ) : (
             <>
@@ -391,36 +344,43 @@ const App: React.FC = () => {
                      <div className="p-12 -mt-20 relative">
                         <div className="flex justify-between items-start mb-4">
                           <h3 className="text-4xl font-black logo-font leading-tight">{currentScenario?.title}</h3>
-                          <div className="bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-black uppercase">
+                          <div className="bg-slate-900 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase">
                             Week {stats.currentWeek}
                           </div>
                         </div>
                         <p className="text-slate-500 text-2xl leading-relaxed font-medium">{currentScenario?.description}</p>
+                        <div className="mt-4 flex items-center gap-2 text-slate-400">
+                          <MapPin size={14} />
+                          <span className="text-xs font-bold uppercase tracking-widest">{stats.city}</span>
+                        </div>
                         {stats.currentWeek % 4 === 0 && (
                           <div className="mt-8 p-6 bg-amber-50 border-2 border-amber-200 rounded-[2rem] flex items-center gap-4 text-amber-800 animate-pulse">
                              <AlertCircle className="w-8 h-8 flex-shrink-0" />
-                             <p className="font-black text-sm uppercase">Notice: Monthly Salary hits next week!</p>
+                             <p className="font-black text-xs uppercase tracking-widest">Payday Alert! Next week completes your 4-week cycle.</p>
                           </div>
                         )}
                      </div>
                    </div>
-                   <div className={`p-10 rounded-[3rem] transition-all duration-500 ${selectedIndices.length > 0 ? 'bg-emerald-600 text-white shadow-emerald-200' : 'bg-slate-100 text-slate-400'} flex justify-between items-center shadow-2xl`}>
+                   <div className={`p-10 rounded-[3rem] transition-all duration-500 ${selectedIndices.length > 0 ? 'bg-emerald-600 text-white shadow-emerald-200 shadow-2xl' : 'bg-slate-100 text-slate-400'} flex justify-between items-center`}>
                      <p className="text-2xl font-black">
-                        {selectedIndices.length > 0 ? `${selectedIndices.length} Choice Selected` : 'Select 1 or 2 options'}
+                        {selectedIndices.length > 0 ? `${selectedIndices.length} Choice Selected` : 'Pick 1 or 2 options'}
                      </p>
-                     {selectedIndices.length > 0 && <button onClick={confirmChoices} className="px-12 py-6 bg-white text-emerald-600 rounded-3xl font-black text-xl shadow-lg animate-in slide-in-from-right-4">Confirm Moves</button>}
+                     {selectedIndices.length > 0 && (
+                        <button onClick={confirmChoices} className="px-12 py-6 bg-white text-emerald-600 rounded-3xl font-black text-xl shadow-lg hover:scale-105 active:scale-95 transition-all">Confirm</button>
+                     )}
                    </div>
                 </div>
                 <div className="lg:col-span-5 space-y-4">
                   {currentScenario?.choices.map((c, i) => {
                     const isSel = selectedIndices.includes(i);
+                    const isInvest = !!c.investmentId;
                     return (
                       <button key={i} onClick={() => toggleChoice(i)} className={`w-full text-left p-8 rounded-[2.5rem] border-4 transition-all duration-300 ${isSel ? 'bg-emerald-600 border-emerald-400 text-white shadow-2xl scale-[1.02]' : 'bg-white border-transparent hover:border-emerald-100 shadow-md'}`}>
                         <div className="flex justify-between items-start mb-2">
-                          <p className="font-black text-2xl mb-1">{c.text}</p>
-                          {isSel && <CheckCircle2 className="w-6 h-6" />}
+                          <p className="font-black text-2xl mb-1 leading-tight">{c.text}</p>
+                          {isInvest && <Zap className="w-5 h-5 text-amber-500 fill-current" />}
                         </div>
-                        <div className="flex gap-6 opacity-80 text-xs font-black uppercase tracking-widest">
+                        <div className="flex gap-6 opacity-80 text-[10px] font-black uppercase tracking-widest">
                           <span className="flex items-center gap-1"><Banknote size={14} /> {c.impact.balance >= 0 ? '+' : ''}₦{c.impact.balance.toLocaleString()}</span>
                           <span className="flex items-center gap-1"><Heart size={14} /> {c.impact.happiness > 0 ? '+' : ''}{c.impact.happiness}% Hap</span>
                         </div>

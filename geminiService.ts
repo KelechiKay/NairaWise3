@@ -14,33 +14,34 @@ export const getNextScenario = async (
   if (stats.currentWeek > 300) phase = "LEGACY (Billionaire Era)";
 
   const prompt = `
-    Create a highly personalized financial scenario for a Nigerian named ${stats.name}.
+    Create a personalized financial scenario for a Nigerian named ${stats.name} living in ${stats.city} State.
     
     PLAYER PROFILE:
     - GENDER: ${stats.gender}
     - JOB: ${stats.job}
-    - RESIDENCE: ${stats.city} State
+    - LOCATION: ${stats.city}
     - MARITAL STATUS: ${stats.maritalStatus}
     - CHILDREN: ${stats.numberOfKids}
     - LIQUID BALANCE: ₦${stats.balance.toLocaleString()}
     - MONTHLY SALARY: ₦${stats.salary.toLocaleString()}
-    - TIMELINE: Week ${stats.currentWeek} (Phase: ${phase})
-    - CHALLENGE: ${stats.challenge}
+    - WEEK: ${stats.currentWeek} (${phase})
 
-    CRITICAL GAME MECHANICS:
-    1. SALARY CYCLE: The player gets their ₦${stats.salary.toLocaleString()} salary every 4 weeks with a 1-week delay (Weeks 5, 9, 13...). 
-       Current week is ${stats.currentWeek}.
-    2. THE ZERO RULE: If the player's balance hits ₦0, they lose instantly. Scenarios should tempt them to spend or force them to choose between essentials and survival.
-    3. GIVING: Every time money comes in (including this scenario's inflow or salary), they are asked to Tithe or Give.
+    GAME MECHANICS:
+    1. ZERO BALANCE = INSTANT GAME OVER (SAPA WINS).
+    2. SALARY: Paid every 4 weeks (Weeks 5, 9, 13...). 
+    3. MULTI-CHOICE: Player picks 1 or 2 choices from 5 provided.
+    4. NO RELIGION: Strictly secular. No tithes, offerings, or religious events.
 
     STRICT GUIDELINES:
-    1. PROVIDE EXACTLY 4 CHOICES.
-    2. Choice 1: Survival/Prudent - A localized Nigerian way to save or earn extra.
-    3. Choice 2: Personal/Social - A high-pressure Nigerian situation (Black Tax, wedding, car trouble, medical, etc).
-    4. Choice 3: Individual Stock - Use one: "lagos-gas", "nairatech", "obudu-agri".
-    5. Choice 4: Mutual Fund - Use one: "naija-balanced", "arm-growth", "fgn-bond-fund".
-    6. Use authentic Nigerian Pidgin and cultural context naturally.
-    7. Impacts must be proportional to their income.
+    1. PROVIDE EXACTLY 5 CHOICES.
+    2. CHOICE CONTENT:
+       - Choice 1: Basic Necessity relevant to ${stats.city} (e.g., BRT/Danfo if Lagos, Keke if Kano, etc.).
+       - Choice 2: Family/Social (Marital issues if married, children needs, black tax).
+       - Choice 3: Side Hustle or Emergency.
+       - Choice 4: Stock Investment (Use id: "lagos-gas", "nairatech", or "obudu-agri").
+       - Choice 5: Mutual Fund Investment (Use id: "naija-balanced", "arm-growth", or "fgn-bond-fund").
+    3. LANGUAGE: Use authentic Nigerian Pidgin mixed with savvy financial terms.
+    4. DIFFICULTY: Scale impacts based on their ₦${stats.salary.toLocaleString()} income.
 
     RESPONSE FORMAT: JSON only.
   `;
@@ -55,17 +56,17 @@ export const getNextScenario = async (
         properties: {
           title: { type: Type.STRING },
           description: { type: Type.STRING },
-          imageTheme: { type: Type.STRING, description: "Theme for image generation" },
+          imageTheme: { type: Type.STRING, description: "Theme for image, e.g. 'lagos bus', 'family lunch'" },
           choices: {
             type: Type.ARRAY,
-            minItems: 4,
-            maxItems: 4,
+            minItems: 5,
+            maxItems: 5,
             items: {
               type: Type.OBJECT,
               properties: {
                 text: { type: Type.STRING },
                 consequence: { type: Type.STRING },
-                investmentId: { type: Type.STRING, description: "Only for stocks/funds" },
+                investmentId: { type: Type.STRING, description: "Only if choice is an investment" },
                 impact: {
                   type: Type.OBJECT,
                   properties: {
@@ -83,20 +84,20 @@ export const getNextScenario = async (
         },
         required: ["title", "description", "choices", "imageTheme"]
       },
-      systemInstruction: "You are NairaWise, the ultimate Nigerian financial coach. You speak in Pidgin mixed with English. You are witty, slightly sarcastic but deeply helpful."
+      systemInstruction: "You are NairaWise, a witty Nigerian financial sim engine. You provide exactly 5 options. No religion. Be culturally grounded and savvy."
     }
   });
 
   return JSON.parse(response.text || "{}");
 };
 
-export const getEndGameAnalysis = async (stats: PlayerStats, history: GameLog[]) => {
+export const getEndGameAnalysis = async (stats: PlayerStats, h: GameLog[]) => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const prompt = `Explain why ${stats.name} (a ${stats.job}) is now broke (₦0 balance) at Week ${stats.currentWeek}. Use history if provided. Mention the debt of ₦${stats.debt}. Give a final humorous lecture in Pidgin.`;
+  const prompt = `Explain why ${stats.name} (a ${stats.job} in ${stats.city}) is now broke (₦0 balance) at Week ${stats.currentWeek}. Analyze their path (Married: ${stats.maritalStatus === 'married'}, Kids: ${stats.numberOfKids}) and give a funny lecture in Pidgin. Secular only.`;
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
     contents: prompt,
-    config: { systemInstruction: "You are a wise but biting Nigerian financial mentor." }
+    config: { systemInstruction: "Wise Nigerian financial mentor. No religion." }
   });
-  return response.text || "Sapa catch you, my pikin! Your balance is zero. Your village people don win finally.";
+  return response.text || "Sapa catch you my pikin! Your balance is zero. Nigerian economy don win.";
 };
