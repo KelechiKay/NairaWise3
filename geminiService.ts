@@ -16,6 +16,7 @@ export const getNextScenario = async (
 
   const prompt = `
     Create a financial scenario for a Nigerian named ${stats.name}.
+    The user must pick ONLY ONE of the 4 paths you provide.
     
     PLAYER INFO:
     - JOB: ${stats.job}
@@ -29,12 +30,13 @@ export const getNextScenario = async (
     - MUTUAL FUNDS: "naija-balanced", "arm-growth", "fgn-bond-fund"
 
     STRICT GUIDELINES:
-    1. PROVIDE EXACTLY 4 CHOICES.
-    2. Choice 1: Survival - A side hustle or a way to save small money.
-    3. Choice 3: Family/Social - A demand from family (Black Tax) or a social obligation.
+    1. PROVIDE EXACTLY 4 CHOICES (Each a different path).
+    2. Choice 1: Survival/Hustle - A way to make extra cash or save costs.
+    3. Choice 2: Family/Social - A demand from home (Black Tax) or social event.
     4. Choice 3: Stock - Must use a "STOCKS" ID.
     5. Choice 4: Mutual Fund - Must use a "MUTUAL FUNDS" ID.
-    6. Use Nigerian Pidgin naturally. Impacts must fit their income (₦${stats.salary.toLocaleString()}).
+    6. Use Nigerian Pidgin naturally. 
+    7. Impacts must be proportional to their monthly income of ₦${stats.salary.toLocaleString()}.
 
     RESPONSE FORMAT: JSON only.
   `;
@@ -77,7 +79,7 @@ export const getNextScenario = async (
         },
         required: ["title", "description", "choices", "imageTheme"]
       },
-      systemInstruction: "You are NairaWise. Provide exactly 4 choices every time. Choice 3 and 4 MUST be investments with valid IDs."
+      systemInstruction: "You are NairaWise. Provide exactly 4 distinct paths every time. Path 3 and 4 MUST be investments with valid IDs. The player will select only one."
     }
   });
 
@@ -86,10 +88,11 @@ export const getNextScenario = async (
 
 export const getEndGameAnalysis = async (stats: PlayerStats, history: GameLog[]) => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const prompt = `Explain why ${stats.name} went broke at Week ${stats.currentWeek}. Be a wise Nigerian uncle giving financial advice.`;
+  const prompt = `Explain why ${stats.name} went broke at Week ${stats.currentWeek}. Use specific events from history if possible. Final Balance: ₦${stats.balance}. Debt: ₦${stats.debt}. Be a wise Nigerian uncle giving financial advice with humor.`;
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
     contents: prompt,
+    config: { systemInstruction: "You are a wise Nigerian financial mentor." }
   });
   return response.text || "Sapa catch you, my pikin!";
 };

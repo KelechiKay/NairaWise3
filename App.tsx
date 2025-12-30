@@ -73,7 +73,7 @@ const App: React.FC = () => {
   const [stocks, setStocks] = useState<Stock[]>(INITIAL_ASSETS);
   const [portfolio, setPortfolio] = useState<PortfolioItem[]>([]);
   const [gameOverReport, setGameOverReport] = useState<string>('');
-  const [selectedChoiceIndices, setSelectedChoiceIndices] = useState<number[]>([]);
+  const [selectedChoiceIndex, setSelectedChoiceIndex] = useState<number | null>(null);
   const isPrefetching = useRef(false);
 
   const [setupData, setSetupData] = useState({
@@ -107,47 +107,35 @@ const App: React.FC = () => {
     } catch (e) { setStatus(GameStatus.START); }
   };
 
-  const toggleChoice = (index: number) => {
-    setSelectedChoiceIndices(prev => {
-      if (prev.includes(index)) return prev.filter(i => i !== index);
-      if (prev.length >= 2) return [prev[1], index];
-      return [...prev, index];
-    });
+  const selectChoice = (index: number) => {
+    setSelectedChoiceIndex(index === selectedChoiceIndex ? null : index);
   };
 
-  const confirmChoices = async () => {
-    if (!stats || !currentScenario || selectedChoiceIndices.length !== 2) return;
-    const choices = selectedChoiceIndices.map(i => currentScenario.choices[i]);
-    const totalImpact = choices.reduce((acc, c) => ({
-      balance: acc.balance + c.impact.balance,
-      savings: acc.savings + c.impact.savings,
-      debt: acc.debt + c.impact.debt,
-      happiness: acc.happiness + c.impact.happiness
-    }), { balance: 0, savings: 0, debt: 0, happiness: 0 });
-
+  const confirmChoice = async () => {
+    if (!stats || !currentScenario || selectedChoiceIndex === null) return;
+    const choice = currentScenario.choices[selectedChoiceIndex];
+    
     const newStats = {
       ...stats,
-      balance: stats.balance + totalImpact.balance,
-      savings: Math.max(0, stats.savings + totalImpact.savings),
-      debt: Math.max(0, stats.debt + totalImpact.debt),
-      happiness: Math.min(100, Math.max(0, stats.happiness + totalImpact.happiness)),
+      balance: stats.balance + choice.impact.balance,
+      savings: Math.max(0, stats.savings + choice.impact.savings),
+      debt: Math.max(0, stats.debt + choice.impact.debt),
+      happiness: Math.min(100, Math.max(0, stats.happiness + choice.impact.happiness)),
       currentWeek: stats.currentWeek + 1
     };
 
-    choices.forEach(choice => {
-      if (choice.investmentId) {
-        const stock = stocks.find(s => s.id === choice.investmentId);
-        if (stock) {
-          setPortfolio(prev => {
-            const existing = prev.find(p => p.stockId === stock.id);
-            if (existing) return prev.map(p => p.stockId === stock.id ? { ...p, shares: p.shares + 1 } : p);
-            return [...prev, { stockId: stock.id, shares: 1, averagePrice: stock.price }];
-          });
-        }
+    if (choice.investmentId) {
+      const stock = stocks.find(s => s.id === choice.investmentId);
+      if (stock) {
+        setPortfolio(prev => {
+          const existing = prev.find(p => p.stockId === stock.id);
+          if (existing) return prev.map(p => p.stockId === stock.id ? { ...p, shares: p.shares + 1 } : p);
+          return [...prev, { stockId: stock.id, shares: 1, averagePrice: stock.price }];
+        });
       }
-    });
+    }
 
-    const newHistory = [...history, ...choices.map(c => ({ week: stats.currentWeek, title: currentScenario.title, decision: c.text, consequence: c.consequence }))];
+    const newHistory = [...history, { week: stats.currentWeek, title: currentScenario.title, decision: choice.text, consequence: choice.consequence }];
     setHistory(newHistory); setStats(newStats);
 
     if (newStats.balance < -20000) {
@@ -157,8 +145,8 @@ const App: React.FC = () => {
       return;
     }
 
-    setLastConsequences({ title: currentScenario.title, items: choices.map(c => ({ text: c.consequence, decision: c.text })) });
-    setSelectedChoiceIndices([]);
+    setLastConsequences({ title: currentScenario.title, items: [{ text: choice.consequence, decision: choice.text }] });
+    setSelectedChoiceIndex(null);
     if (!nextScenario) prefetchNext(newStats, newHistory);
   };
 
@@ -239,16 +227,16 @@ const App: React.FC = () => {
                         <p className="text-slate-500 text-xl leading-relaxed font-medium">{currentScenario?.description}</p>
                      </div>
                    </div>
-                   <div className={`p-10 rounded-[3rem] ${selectedChoiceIndices.length === 2 ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-400'} flex justify-between items-center`}>
-                     <p className="text-2xl font-black">{selectedChoiceIndices.length} / 2 Picked</p>
-                     {selectedChoiceIndices.length === 2 && <button onClick={confirmChoices} className="px-10 py-5 bg-white text-emerald-600 rounded-2xl font-black">Execute Move</button>}
+                   <div className={`p-10 rounded-[3rem] ${selectedChoiceIndex !== null ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-400'} flex justify-between items-center`}>
+                     <p className="text-2xl font-black">{selectedChoiceIndex !== null ? 'Choice Ready' : 'Pick your path'}</p>
+                     {selectedChoiceIndex !== null && <button onClick={confirmChoice} className="px-10 py-5 bg-white text-emerald-600 rounded-2xl font-black shadow-lg">Confirm Move</button>}
                    </div>
                 </div>
                 <div className="lg:col-span-6 space-y-4">
                   {currentScenario?.choices.map((c, i) => {
-                    const isSel = selectedChoiceIndices.includes(i);
+                    const isSel = selectedChoiceIndex === i;
                     return (
-                      <button key={i} onClick={() => toggleChoice(i)} className={`w-full text-left p-7 rounded-[2.5rem] border-2 transition-all ${isSel ? 'bg-emerald-600 border-emerald-600 text-white shadow-xl' : 'bg-white border-slate-50'}`}>
+                      <button key={i} onClick={() => selectChoice(i)} className={`w-full text-left p-7 rounded-[2.5rem] border-2 transition-all ${isSel ? 'bg-emerald-600 border-emerald-600 text-white shadow-xl scale-[1.02]' : 'bg-white border-slate-50 hover:border-emerald-100'}`}>
                         <p className="font-black text-xl mb-2">{c.text}</p>
                         <div className="flex gap-4 opacity-70 text-[10px] font-black uppercase tracking-widest">
                           <span>₦{c.impact.balance.toLocaleString()}</span>
@@ -261,6 +249,17 @@ const App: React.FC = () => {
               </div>
             </>
           )}
+        </div>
+      )}
+
+      {status === GameStatus.GAMEOVER && (
+        <div className="max-w-3xl mx-auto bg-white p-16 rounded-[4.5rem] shadow-2xl text-center border-4 border-rose-500">
+          <Skull className="w-24 h-24 text-rose-500 mx-auto mb-8" />
+          <h2 className="text-5xl font-black mb-6 logo-font">Sapa Finally Won.</h2>
+          <div className="bg-rose-50 p-8 rounded-[3rem] mb-12">
+            <p className="text-xl font-medium text-rose-900 leading-relaxed">"{gameOverReport}"</p>
+          </div>
+          <button onClick={() => window.location.reload()} className="px-16 py-8 bg-slate-900 text-white rounded-[2.5rem] font-black text-2xl">Try Again</button>
         </div>
       )}
     </div>
