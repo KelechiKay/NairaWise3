@@ -28,7 +28,11 @@ import {
   Check,
   TrendingUp,
   Gem,
-  ArrowRight
+  ArrowRight,
+  User,
+  Briefcase,
+  Users,
+  Baby
 } from 'lucide-react';
 
 const INITIAL_ASSETS: Stock[] = [
@@ -45,6 +49,11 @@ const CHALLENGES = [
   { id: 'sapa-max', name: 'Sapa Level Max', icon: Flame, color: 'text-orange-500', description: 'Start with ₦0. Only your grit can save you.' },
   { id: 'inflation', name: 'Inflation Fighter', icon: AlertCircle, color: 'text-amber-500', description: 'Start with ₦500k student debt. Tick-tock.' },
   { id: 'silver-spoon', name: 'Silver Spoon', icon: Crown, color: 'text-indigo-500', description: '₦1M headstart, but boredom kills happiness fast.' }
+];
+
+const JOBS = [
+  "Digital Hustler", "Civil Servant", "Banker", "Market Trader", 
+  "Tech Sis/Bro", "Doctor", "Artisan", "Content Creator", "Student"
 ];
 
 const PRESET_GOALS: Goal[] = [
@@ -77,8 +86,10 @@ const App: React.FC = () => {
   const isPrefetching = useRef(false);
 
   const [setupData, setSetupData] = useState({
-    name: '', job: 'Digital Hustler', salary: 150000, city: 'Lagos',
-    challengeId: 'sapa-max', selectedGoalId: 'survive', maritalStatus: 'single' as 'single' | 'married', numberOfKids: 0
+    name: '', gender: 'male' as 'male' | 'female' | 'other', 
+    job: 'Digital Hustler', salary: 150000, city: 'Lagos',
+    challengeId: 'sapa-max', selectedGoalId: 'survive', 
+    maritalStatus: 'single' as 'single' | 'married', numberOfKids: 0
   });
 
   const prefetchNext = useCallback(async (s: PlayerStats, h: GameLog[]) => {
@@ -94,9 +105,14 @@ const App: React.FC = () => {
   const handleFinishSetup = async () => {
     if (!setupData.name) return alert("Enter your name!");
     const initial: PlayerStats = {
-      ...setupData, age: 22, 
+      ...setupData, 
+      age: 22, 
       balance: setupData.challengeId === 'sapa-max' ? 0 : setupData.challengeId === 'silver-spoon' ? 1000000 : setupData.salary,
-      savings: 0, debt: setupData.challengeId === 'inflation' ? 500000 : 0, happiness: 80, currentWeek: 1, challenge: setupData.challengeId
+      savings: 0, 
+      debt: setupData.challengeId === 'inflation' ? 500000 : 0, 
+      happiness: 80, 
+      currentWeek: 1, 
+      challenge: CHALLENGES.find(c => c.id === setupData.challengeId)?.name || "The Hustle"
     };
     setStatus(GameStatus.LOADING);
     setStats(initial);
@@ -138,7 +154,7 @@ const App: React.FC = () => {
     const newHistory = [...history, { week: stats.currentWeek, title: currentScenario.title, decision: choice.text, consequence: choice.consequence }];
     setHistory(newHistory); setStats(newStats);
 
-    if (newStats.balance < -20000) {
+    if (newStats.balance < -50000) {
       setStatus(GameStatus.LOADING);
       const report = await getEndGameAnalysis(newStats, newHistory);
       setGameOverReport(report); setStatus(GameStatus.GAMEOVER);
@@ -161,37 +177,92 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen max-w-5xl mx-auto px-4 py-10 pb-32">
       {status === GameStatus.START && (
-        <div className="flex flex-col items-center justify-center min-h-[80vh] text-center space-y-10">
+        <div className="flex flex-col items-center justify-center min-h-[80vh] text-center space-y-10 animate-in fade-in zoom-in duration-700">
            <h1 className="text-8xl font-black text-slate-900 logo-font tracking-tighter"><span className="text-gradient">NairaWise</span></h1>
+           <p className="text-xl text-slate-500 font-bold max-w-md">Role-play real Nigerian scenarios. Master Sapa before Sapa masters you.</p>
            <button onClick={() => setStatus(GameStatus.SETUP)} className="px-14 py-7 bg-slate-900 text-white rounded-[2.5rem] font-black text-2xl flex items-center gap-4 transition-all hover:scale-105 active:scale-95 shadow-xl">Start Hustle <ArrowRight /></button>
         </div>
       )}
 
       {status === GameStatus.SETUP && (
-        <div className="max-w-4xl mx-auto bg-white p-12 rounded-[3.5rem] shadow-2xl border border-slate-100">
-          <h2 className="text-4xl font-black mb-10 logo-font text-center">Your Hustle Profile</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mb-12">
-            <div className="space-y-4">
-              <input placeholder="Legal Name" className="w-full bg-slate-50 p-5 rounded-2xl font-bold" value={setupData.name} onChange={e => setSetupData({...setupData, name: e.target.value})} />
-              <select className="w-full bg-slate-50 p-5 rounded-2xl font-bold" value={setupData.city} onChange={e => setSetupData({...setupData, city: e.target.value})}>
-                {ALL_NIGERIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
+        <div className="max-w-4xl mx-auto bg-white p-8 md:p-12 rounded-[3.5rem] shadow-2xl border border-slate-100 animate-in slide-in-from-bottom-8 duration-500">
+          <h2 className="text-4xl font-black mb-10 logo-font text-center">Your Identity</h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+            <div className="space-y-6">
+              <div>
+                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-4 mb-2 block">Full Name</label>
+                <input placeholder="e.g. Ebuka" className="w-full bg-slate-50 p-5 rounded-2xl font-bold border-2 border-transparent focus:border-indigo-500 outline-none transition-all" value={setupData.name} onChange={e => setSetupData({...setupData, name: e.target.value})} />
+              </div>
+              
+              <div>
+                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-4 mb-2 block">Gender</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(['male', 'female', 'other'] as const).map(g => (
+                    <button key={g} onClick={() => setSetupData({...setupData, gender: g})} className={`py-4 rounded-2xl font-black text-xs uppercase border-2 transition-all ${setupData.gender === g ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-slate-50 border-transparent text-slate-500'}`}>{g}</button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-4 mb-2 block">Career / Job</label>
+                <select className="w-full bg-slate-50 p-5 rounded-2xl font-bold border-2 border-transparent outline-none focus:border-indigo-500" value={setupData.job} onChange={e => setSetupData({...setupData, job: e.target.value})}>
+                  {JOBS.map(j => <option key={j} value={j}>{j}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-4 mb-2 block">State of Residence</label>
+                <select className="w-full bg-slate-50 p-5 rounded-2xl font-bold border-2 border-transparent outline-none focus:border-indigo-500" value={setupData.city} onChange={e => setSetupData({...setupData, city: e.target.value})}>
+                  {ALL_NIGERIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
             </div>
-            <div className="space-y-4">
-              <input type="number" placeholder="Income (₦)" className="w-full bg-slate-50 p-5 rounded-2xl font-bold" value={setupData.salary} onChange={e => setSetupData({...setupData, salary: Number(e.target.value)})} />
-              <select className="w-full bg-slate-50 p-5 rounded-2xl font-bold" value={setupData.challengeId} onChange={e => setSetupData({...setupData, challengeId: e.target.value})}>
-                {CHALLENGES.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
+
+            <div className="space-y-6">
+              <div>
+                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-4 mb-2 block">Monthly Income (₦)</label>
+                <input type="number" placeholder="Income" className="w-full bg-slate-50 p-5 rounded-2xl font-bold border-2 border-transparent focus:border-indigo-500 outline-none" value={setupData.salary} onChange={e => setSetupData({...setupData, salary: Number(e.target.value)})} />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-4 mb-2 block">Marital Status</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {(['single', 'married'] as const).map(m => (
+                    <button key={m} onClick={() => setSetupData({...setupData, maritalStatus: m})} className={`py-4 rounded-2xl font-black text-xs uppercase border-2 transition-all ${setupData.maritalStatus === m ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-slate-50 border-transparent text-slate-500'}`}>{m}</button>
+                  ))}
+                </div>
+              </div>
+
+              {setupData.maritalStatus === 'married' && (
+                <div className="animate-in slide-in-from-top-4 duration-300">
+                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-4 mb-2 block">How many kids?</label>
+                  <input type="number" min="0" className="w-full bg-slate-50 p-5 rounded-2xl font-bold border-2 border-transparent focus:border-indigo-500 outline-none" value={setupData.numberOfKids} onChange={e => setSetupData({...setupData, numberOfKids: Number(e.target.value)})} />
+                </div>
+              )}
+
+              <div>
+                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-4 mb-2 block">Starting Challenge</label>
+                <select className="w-full bg-slate-50 p-5 rounded-2xl font-bold border-2 border-transparent outline-none focus:border-indigo-500" value={setupData.challengeId} onChange={e => setSetupData({...setupData, challengeId: e.target.value})}>
+                  {CHALLENGES.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
             </div>
           </div>
-          <button onClick={handleFinishSetup} className="w-full py-8 bg-slate-900 text-white rounded-[2.5rem] font-black text-2xl">Begin Career</button>
+          
+          <button onClick={handleFinishSetup} className="w-full py-8 bg-slate-900 text-white rounded-[2.5rem] font-black text-2xl shadow-xl hover:scale-[1.02] active:scale-95 transition-all">Start My Career</button>
         </div>
       )}
 
-      {status === GameStatus.LOADING && <div className="flex flex-col items-center justify-center min-h-[60vh]"><Loader2 className="w-24 h-24 text-emerald-600 animate-spin" /><p className="mt-4 font-black">Syncing with NSE...</p></div>}
+      {status === GameStatus.LOADING && (
+        <div className="flex flex-col items-center justify-center min-h-[60vh]">
+          <Loader2 className="w-24 h-24 text-emerald-600 animate-spin" />
+          <p className="mt-8 font-black text-xl text-slate-700">Consulting with your village people...</p>
+        </div>
+      )}
 
       {status === GameStatus.PLAYING && stats && (
-        <div className="space-y-8">
+        <div className="space-y-8 animate-in fade-in duration-1000">
           <header className="flex justify-between items-center bg-white px-8 py-5 rounded-[2.5rem] shadow-xl border border-slate-100">
              <h1 className="text-2xl font-black logo-font text-gradient">NairaWise</h1>
              <nav className="flex gap-4">
@@ -204,43 +275,46 @@ const App: React.FC = () => {
           {activeTab === 'invest' ? (
             <StockMarket stocks={stocks} portfolio={portfolio} news={[]} onBuy={s => {}} onSell={s => {}} balance={stats.balance} onSetTrigger={() => {}} />
           ) : lastConsequences ? (
-             <div className="bg-white p-12 rounded-[4.5rem] shadow-2xl text-center">
+             <div className="bg-white p-12 rounded-[4.5rem] shadow-2xl text-center animate-in zoom-in duration-300">
                <h3 className="text-5xl font-black mb-12 logo-font">Week {stats.currentWeek - 1} Results</h3>
                <div className="space-y-6 mb-16">
                  {lastConsequences.items.map((it, i) => (
-                   <div key={i} className="p-8 bg-slate-50 rounded-[3rem] text-left relative overflow-hidden">
-                     <p className="text-xl text-slate-700 italic font-medium">"{it.text}"</p>
+                   <div key={i} className="p-10 bg-slate-50 rounded-[3rem] text-left relative overflow-hidden">
+                     <p className="text-2xl text-slate-700 italic font-medium leading-relaxed">"{it.text}"</p>
                    </div>
                  ))}
                </div>
-               <button onClick={proceed} className="px-20 py-8 bg-slate-900 text-white rounded-[2.5rem] font-black text-2xl">Continue</button>
+               <button onClick={proceed} className="px-20 py-8 bg-slate-900 text-white rounded-[2.5rem] font-black text-2xl shadow-2xl active:scale-95 transition-all">Continue</button>
              </div>
           ) : (
             <>
               <Dashboard stats={stats} goals={goals} netAssets={netAssets} />
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-                <div className="lg:col-span-6 space-y-8">
+                <div className="lg:col-span-7 space-y-8">
                    <div className="bg-white rounded-[3.5rem] overflow-hidden shadow-2xl border border-slate-100">
-                     <img src={`https://picsum.photos/seed/${currentScenario?.imageTheme || 'hustle'}/1200/800`} className="w-full h-80 object-cover" />
-                     <div className="p-12">
-                        <h3 className="text-3xl font-black mb-6 logo-font">{currentScenario?.title}</h3>
-                        <p className="text-slate-500 text-xl leading-relaxed font-medium">{currentScenario?.description}</p>
+                     <div className="relative h-96 overflow-hidden">
+                       <img src={`https://picsum.photos/seed/${currentScenario?.imageTheme || 'nigeria'}/1200/800`} className="w-full h-full object-cover" />
+                       <div className="absolute inset-0 bg-gradient-to-t from-white via-transparent to-transparent opacity-90" />
+                     </div>
+                     <div className="p-12 -mt-20 relative">
+                        <h3 className="text-4xl font-black mb-6 logo-font leading-tight">{currentScenario?.title}</h3>
+                        <p className="text-slate-500 text-2xl leading-relaxed font-medium">{currentScenario?.description}</p>
                      </div>
                    </div>
-                   <div className={`p-10 rounded-[3rem] ${selectedChoiceIndex !== null ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-400'} flex justify-between items-center`}>
-                     <p className="text-2xl font-black">{selectedChoiceIndex !== null ? 'Choice Ready' : 'Pick your path'}</p>
-                     {selectedChoiceIndex !== null && <button onClick={confirmChoice} className="px-10 py-5 bg-white text-emerald-600 rounded-2xl font-black shadow-lg">Confirm Move</button>}
+                   <div className={`p-10 rounded-[3rem] transition-all duration-500 ${selectedChoiceIndex !== null ? 'bg-emerald-600 text-white shadow-emerald-200' : 'bg-slate-100 text-slate-400'} flex justify-between items-center shadow-2xl`}>
+                     <p className="text-2xl font-black">{selectedChoiceIndex !== null ? 'Ready to act' : 'Pick your path'}</p>
+                     {selectedChoiceIndex !== null && <button onClick={confirmChoice} className="px-12 py-6 bg-white text-emerald-600 rounded-3xl font-black text-xl shadow-lg animate-in fade-in slide-in-from-right-4">Confirm Move</button>}
                    </div>
                 </div>
-                <div className="lg:col-span-6 space-y-4">
+                <div className="lg:col-span-5 space-y-4">
                   {currentScenario?.choices.map((c, i) => {
                     const isSel = selectedChoiceIndex === i;
                     return (
-                      <button key={i} onClick={() => selectChoice(i)} className={`w-full text-left p-7 rounded-[2.5rem] border-2 transition-all ${isSel ? 'bg-emerald-600 border-emerald-600 text-white shadow-xl scale-[1.02]' : 'bg-white border-slate-50 hover:border-emerald-100'}`}>
-                        <p className="font-black text-xl mb-2">{c.text}</p>
-                        <div className="flex gap-4 opacity-70 text-[10px] font-black uppercase tracking-widest">
-                          <span>₦{c.impact.balance.toLocaleString()}</span>
-                          <span>Hap: {c.impact.happiness}%</span>
+                      <button key={i} onClick={() => selectChoice(i)} className={`w-full text-left p-8 rounded-[2.5rem] border-4 transition-all duration-300 ${isSel ? 'bg-emerald-600 border-emerald-400 text-white shadow-2xl scale-[1.02]' : 'bg-white border-transparent hover:border-emerald-100 shadow-md'}`}>
+                        <p className="font-black text-2xl mb-3">{c.text}</p>
+                        <div className="flex gap-6 opacity-80 text-xs font-black uppercase tracking-widest">
+                          <span className="flex items-center gap-1"><Banknote size={14} /> ₦{c.impact.balance.toLocaleString()}</span>
+                          <span className="flex items-center gap-1"><Heart size={14} /> {c.impact.happiness > 0 ? '+' : ''}{c.impact.happiness}%</span>
                         </div>
                       </button>
                     );
@@ -253,13 +327,13 @@ const App: React.FC = () => {
       )}
 
       {status === GameStatus.GAMEOVER && (
-        <div className="max-w-3xl mx-auto bg-white p-16 rounded-[4.5rem] shadow-2xl text-center border-4 border-rose-500">
+        <div className="max-w-3xl mx-auto bg-white p-16 rounded-[4.5rem] shadow-2xl text-center border-4 border-rose-500 animate-in fade-in scale-95 duration-500">
           <Skull className="w-24 h-24 text-rose-500 mx-auto mb-8" />
-          <h2 className="text-5xl font-black mb-6 logo-font">Sapa Finally Won.</h2>
-          <div className="bg-rose-50 p-8 rounded-[3rem] mb-12">
-            <p className="text-xl font-medium text-rose-900 leading-relaxed">"{gameOverReport}"</p>
+          <h2 className="text-6xl font-black mb-6 logo-font text-rose-600">Game Over</h2>
+          <div className="bg-rose-50 p-10 rounded-[3rem] mb-12 border-2 border-rose-100">
+            <p className="text-2xl font-black text-rose-900 leading-relaxed italic">"{gameOverReport}"</p>
           </div>
-          <button onClick={() => window.location.reload()} className="px-16 py-8 bg-slate-900 text-white rounded-[2.5rem] font-black text-2xl">Try Again</button>
+          <button onClick={() => window.location.reload()} className="px-20 py-8 bg-slate-900 text-white rounded-[3rem] font-black text-3xl shadow-2xl hover:bg-rose-600 transition-colors">Restart Life</button>
         </div>
       )}
     </div>

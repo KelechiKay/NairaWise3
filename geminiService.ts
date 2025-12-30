@@ -7,36 +7,38 @@ export const getNextScenario = async (
   history: GameLog[]
 ): Promise<Scenario> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const historyContext = history.slice(-3).map(h => `Week ${h.week}: ${h.decision}`).join('\n');
-
+  
   let phase = "SURVIVAL (Sapa Era)";
   if (stats.currentWeek > 50) phase = "GROWTH (Hustle Era)";
   if (stats.currentWeek > 150) phase = "EXPANSION (Oga Era)";
   if (stats.currentWeek > 300) phase = "LEGACY (Billionaire Era)";
 
   const prompt = `
-    Create a financial scenario for a Nigerian named ${stats.name}.
-    The user must pick ONLY ONE of the 4 paths you provide.
+    Create a highly personalized financial scenario for a Nigerian named ${stats.name}.
     
-    PLAYER INFO:
+    PLAYER PROFILE:
+    - GENDER: ${stats.gender}
     - JOB: ${stats.job}
-    - LOCATION: ${stats.city}
-    - FAMILY: ${stats.maritalStatus === 'married' ? `Married with ${stats.numberOfKids} kids` : 'Single'}
-    - BALANCE: ₦${stats.balance.toLocaleString()}
-    - WEEK: ${stats.currentWeek} (${phase})
-
-    ASSET IDs:
-    - STOCKS: "lagos-gas", "nairatech", "obudu-agri"
-    - MUTUAL FUNDS: "naija-balanced", "arm-growth", "fgn-bond-fund"
+    - RESIDENCE: ${stats.city} State
+    - MARITAL STATUS: ${stats.maritalStatus}
+    - CHILDREN: ${stats.numberOfKids}
+    - LIQUID BALANCE: ₦${stats.balance.toLocaleString()}
+    - MONTHLY EARNINGS: ₦${stats.salary.toLocaleString()}
+    - CURRENT TIMELINE: Week ${stats.currentWeek} (${phase})
+    - ACTIVE CHALLENGE: ${stats.challenge}
 
     STRICT GUIDELINES:
-    1. PROVIDE EXACTLY 4 CHOICES (Each a different path).
-    2. Choice 1: Survival/Hustle - A way to make extra cash or save costs.
-    3. Choice 2: Family/Social - A demand from home (Black Tax) or social event.
-    4. Choice 3: Stock - Must use a "STOCKS" ID.
-    5. Choice 4: Mutual Fund - Must use a "MUTUAL FUNDS" ID.
-    6. Use Nigerian Pidgin naturally. 
-    7. Impacts must be proportional to their monthly income of ₦${stats.salary.toLocaleString()}.
+    1. PROVIDE EXACTLY 4 CHOICES (Each representing a different path).
+    2. THE SCENARIO MUST BE PERSONALIZED:
+       - If ${stats.maritalStatus === 'married' ? 'married' : 'single'}, the scenario should involve ${stats.maritalStatus === 'married' ? `their spouse or ${stats.numberOfKids} children` : 'their personal life or extended family'}.
+       - If ${stats.gender === 'male' ? 'a man' : 'a woman'}, use appropriate cultural references (e.g., 'Oga', 'Madam', 'Chairman').
+       - Mention their job (${stats.job}) context.
+    3. Choice 1: Survival/Prudent - A localized Nigerian way to save or earn extra.
+    4. Choice 2: Social/Responsibility - High personalization: Black tax, family emergency, or social pressure (Owambe/Clubbing).
+    5. Choice 3: Individual Stock - Use one of these IDs: "lagos-gas", "nairatech", "obudu-agri".
+    6. Choice 4: Mutual Fund - Use one of these IDs: "naija-balanced", "arm-growth", "fgn-bond-fund".
+    7. Use authentic Nigerian Pidgin and cultural slang naturally.
+    8. Financial impacts must be relative to their ₦${stats.salary.toLocaleString()} income.
 
     RESPONSE FORMAT: JSON only.
   `;
@@ -51,7 +53,7 @@ export const getNextScenario = async (
         properties: {
           title: { type: Type.STRING },
           description: { type: Type.STRING },
-          imageTheme: { type: Type.STRING },
+          imageTheme: { type: Type.STRING, description: "Theme for a cover image, e.g. 'nigerian market', 'office', 'wedding'" },
           choices: {
             type: Type.ARRAY,
             minItems: 4,
@@ -79,7 +81,7 @@ export const getNextScenario = async (
         },
         required: ["title", "description", "choices", "imageTheme"]
       },
-      systemInstruction: "You are NairaWise. Provide exactly 4 distinct paths every time. Path 3 and 4 MUST be investments with valid IDs. The player will select only one."
+      systemInstruction: "You are NairaWise, a financial role-play engine for Nigerians. You provide exactly 4 choices. Your tone is witty, culturally grounded, and wise."
     }
   });
 
@@ -88,11 +90,11 @@ export const getNextScenario = async (
 
 export const getEndGameAnalysis = async (stats: PlayerStats, history: GameLog[]) => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const prompt = `Explain why ${stats.name} went broke at Week ${stats.currentWeek}. Use specific events from history if possible. Final Balance: ₦${stats.balance}. Debt: ₦${stats.debt}. Be a wise Nigerian uncle giving financial advice with humor.`;
+  const prompt = `Analyze how ${stats.name} (a ${stats.job}) went broke after ${stats.currentWeek} weeks. Final Balance: ₦${stats.balance}. Debt: ₦${stats.debt}. Family size: ${stats.numberOfKids}. Give a funny, biting, but educational lecture in Pidgin about what went wrong.`;
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
     contents: prompt,
-    config: { systemInstruction: "You are a wise Nigerian financial mentor." }
+    config: { systemInstruction: "You are a wise but slightly mean Nigerian financial mentor." }
   });
-  return response.text || "Sapa catch you, my pikin!";
+  return response.text || "Sapa catch you, my pikin! Your village people don win.";
 };

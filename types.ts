@@ -1,6 +1,7 @@
 
 export interface PlayerStats {
   name: string;
+  gender: 'male' | 'female' | 'other';
   age: number;
   salary: number;
   balance: number;
