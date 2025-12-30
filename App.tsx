@@ -236,15 +236,17 @@ const App: React.FC = () => {
                 <input placeholder="e.g. Chinedu" className="w-full bg-slate-50 p-5 rounded-2xl font-bold border-2 border-transparent focus:border-indigo-500 outline-none" value={setupData.name} onChange={e => setSetupData({...setupData, name: e.target.value})} />
               </div>
               <div>
+                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-4 mb-2 block">Gender</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(['male', 'female', 'other'] as const).map(g => (
+                    <button key={g} onClick={() => setSetupData({...setupData, gender: g})} className={`py-4 rounded-2xl font-black text-[10px] uppercase border-2 transition-all ${setupData.gender === g ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-slate-50 border-transparent text-slate-500'}`}>{g}</button>
+                  ))}
+                </div>
+              </div>
+              <div>
                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-4 mb-2 block">Career</label>
                 <select className="w-full bg-slate-50 p-5 rounded-2xl font-bold border-2 border-transparent outline-none focus:border-indigo-500" value={setupData.job} onChange={e => setSetupData({...setupData, job: e.target.value})}>
                   {JOBS.map(j => <option key={j} value={j}>{j}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-4 mb-2 block">State of Residence</label>
-                <select className="w-full bg-slate-50 p-5 rounded-2xl font-bold border-2 border-transparent outline-none focus:border-indigo-500" value={setupData.city} onChange={e => setSetupData({...setupData, city: e.target.value})}>
-                  {NIGERIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
               <div>
@@ -254,10 +256,16 @@ const App: React.FC = () => {
             </div>
             <div className="space-y-6">
               <div>
+                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-4 mb-2 block">State of Residence</label>
+                <select className="w-full bg-slate-50 p-5 rounded-2xl font-bold border-2 border-transparent outline-none focus:border-indigo-500" value={setupData.city} onChange={e => setSetupData({...setupData, city: e.target.value})}>
+                  {NIGERIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div>
                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-4 mb-2 block">Marital Status</label>
                 <div className="grid grid-cols-2 gap-2">
                   {(['single', 'married'] as const).map(m => (
-                    <button key={m} onClick={() => setSetupData({...setupData, maritalStatus: m})} className={`py-4 rounded-2xl font-black text-xs uppercase border-2 transition-all ${setupData.maritalStatus === m ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-slate-50 border-transparent text-slate-500'}`}>{m}</button>
+                    <button key={m} onClick={() => setSetupData({...setupData, maritalStatus: m})} className={`py-4 rounded-2xl font-black text-[10px] uppercase border-2 transition-all ${setupData.maritalStatus === m ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-slate-50 border-transparent text-slate-500'}`}>{m}</button>
                   ))}
                 </div>
               </div>
